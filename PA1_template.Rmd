@@ -8,18 +8,134 @@ output:
 
 ## Loading and preprocessing the data
 
+First we need to read the data into R and see how the data is formatted
 
+```{r, echo=TRUE}
+activity <- read.csv("activity.csv")
+
+head(activity)
+```
+
+Since the dates are in a character format, we convert them to a usable format.
+
+```{r, echo=TRUE}
+activity$date <- as.Date(activity$date, format = "%Y-%m-%d")
+```
 
 ## What is mean total number of steps taken per day?
 
+```{r, echo=TRUE}
+# Including the library required
 
+library(ggplot2)
+
+# Calculating the total steps per day
+
+t_steps <- aggregate(steps ~ date, data = activity, sum, na.rm = TRUE)
+
+# Making the plot 
+
+ggplot(data = t_steps, aes(steps)) + geom_histogram(color = "blue") + 
+  ggtitle("Total steps taken per day (missing data ignored)") + ylab("Frequency")
+```
+
+Now we need to calculate the mean and median of total steps 
+
+```{r, echo=TRUE}
+mean(t_steps$steps)
+
+median(t_steps$steps)
+```
 
 ## What is the average daily activity pattern?
 
+```{r, echo=TRUE}
+# Calculating the average steps per interval.
 
+avg_steps <- aggregate(steps ~ interval, data = activity, mean, na.rm = TRUE)
+
+# Plotting the graph
+
+ggplot(avg_steps, aes(interval, steps)) + geom_line(col = "violetred3") + 
+  ggtitle("Average steps taken per interval") + xlab("5-min time inverval") + 
+  ylab("Average steps")
+```
+
+Finding the interval which contains the maximum average steps.
+
+```{r, echo=TRUE}
+m_int <- which.max(avg_steps$steps)
+
+avg_steps[m_int,]$interval
+```
 
 ## Imputing missing values
 
+Calculating the total number of **NA** values.
 
+```{r, echo=TRUE}
+t_na <- is.na(activity$steps)
+
+sum(t_na)
+```
+
+Now to impute the missing values.
+
+```{r, echo=TRUE}
+n_steps <- match(activity$interval, avg_steps$interval)
+
+im_steps <- avg_steps$steps[n_steps]
+```
+
+Now we need to make a dataset similar to `actvity` which contains the imputed values
+
+```{r, echo=TRUE}
+activity2 <- transform(activity, 
+                       steps = ifelse(is.na(activity$steps), 
+                                      yes = im_steps, no = activity$steps))
+
+# Calculating the aggregate of steps per day
+
+t_steps2 <- aggregate(steps ~ date, data = activity2, sum)
+
+# Plotting the graph
+
+ggplot(t_steps2, aes(steps)) + geom_histogram(col = "blue") + 
+  ggtitle("Total steps taken per day (after imputing)") + ylab("Frequency")
+
+# Calculating the mean and median of the dataset
+
+mean(t_steps2$steps)
+
+median(t_steps2$steps)
+```
+
+What we see here is that the median has shifted and became **equal** to the mean of the dataset. After imputing the data, we see the maximum frequency has also **shifted** a little bit to the right. 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+**NOTE: Performing the following manipulations on imputed data**
+
+```{r, echo=TRUE}
+activity2$datefactor <- sapply(activity2$date, function(x){
+  if(weekdays(x) == "Sunday" | weekdays(x) == "Saturday"){
+    y <- "Weekend"
+  }
+  else{
+    y <- "Weekday"
+  }
+  y
+})
+
+# Calculating the total steps distinguished by weekend/weekday
+
+tw_steps <- aggregate(steps ~ interval + datefactor, data = activity2, mean)
+```
+
+Now to make a comparision graph
+
+```{r, echo=TRUE}
+ggplot(tw_steps, aes(interval, steps, color = datefactor)) + 
+  facet_wrap(. ~ datefactor, nrow = 2, ncol = 1) + geom_line() + 
+  ggtitle("Differences in activity pattern") + xlab("5-min time interval")
+```
